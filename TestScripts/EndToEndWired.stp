@@ -1,0 +1,29 @@
+#! /usr/bin/env stap 
+global time_in, time_out, received =1, transferred = 0 
+
+probe begin
+{ //, timer.s(10) 
+  printf("-------------------------------------------\n")
+  printf(" Source IP Dest IP SPort DPort U A P R S F \n") 
+  printf("------------------------------------------ \n") 
+} 
+probe tcp.recvmsg.return
+{
+	if(transferred ==1) 
+		{ 
+		  time_out = gettimeofday_us(); 
+		  printf(" %15s %15s %5d %5d %d %d %d %d %d %d %d\n", saddr, daddr, sport, dport, urg, ack, psh, rst, syn, fin, time_out -time_in); 
+		  transferred = 0; 
+		  received = 1; 
+		}
+} 
+
+probe kernel.function("eth_type_trans") 
+{ if(($skb->protocol == 8)&& (received ==1))//($skb->mac_header == 238)
+  { 
+	   time_in = gettimeofday_us(); 
+	   received =0; 
+	   transferred =1; 
+  } 
+} 
+
